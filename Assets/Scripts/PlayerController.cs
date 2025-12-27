@@ -5,6 +5,8 @@ public class PlayerController : MonoBehaviour
 {
     [Header("Movement")]
     public float moveSpeed = 5f;
+    public float acceleration = 12f;
+    public float deceleration = 16f;
     Vector2 moveInput;
 
     [Header("Jump")]
@@ -35,8 +37,8 @@ public class PlayerController : MonoBehaviour
 
     void Update()
     {
-        moveInput.x = Input.GetAxis("Horizontal");
-        moveInput.y = Input.GetAxis("Vertical");
+        moveInput.x = Input.GetAxisRaw("Horizontal");
+        moveInput.y = Input.GetAxisRaw("Vertical");
 
         if (Input.GetKeyDown(KeyCode.Space))
             jumpInput = true;
@@ -45,7 +47,7 @@ public class PlayerController : MonoBehaviour
     void FixedUpdate()
     {
         GroundCheck();
-        Move();
+        SmoothMove();
         JumpCheck();
         ClampZPosition();
     }
@@ -59,32 +61,41 @@ public class PlayerController : MonoBehaviour
             rayLength,
             ground
         );
-
-        Debug.DrawRay(grdChecker.position, Vector3.down * rayLength, Color.red);
     }
 
-    void Move()
+    void SmoothMove()
     {
         Vector3 inputDir = new Vector3(moveInput.x, 0f, moveInput.y).normalized;
 
+        Vector3 targetVelocity;
+
         if (grounded)
         {
-            // Gerak mengikuti slope terrain
             Vector3 slopeDir = Vector3.ProjectOnPlane(inputDir, groundHit.normal);
-            rb.velocity = new Vector3(
-                slopeDir.x * moveSpeed,
-                rb.velocity.y,
-                slopeDir.z * moveSpeed
-            );
+            targetVelocity = slopeDir * moveSpeed;
         }
         else
         {
-            rb.velocity = new Vector3(
-                inputDir.x * moveSpeed,
-                rb.velocity.y,
-                inputDir.z * moveSpeed
-            );
+            // kontrol di udara lebih kecil
+            targetVelocity = inputDir * (moveSpeed * 0.6f);
         }
+
+        Vector3 currentVelocity = rb.velocity;
+        Vector3 horizontalVelocity = new Vector3(currentVelocity.x, 0f, currentVelocity.z);
+
+        float accel = inputDir.magnitude > 0 ? acceleration : deceleration;
+
+        Vector3 smoothVelocity = Vector3.MoveTowards(
+            horizontalVelocity,
+            targetVelocity,
+            accel * Time.fixedDeltaTime
+        );
+
+        rb.velocity = new Vector3(
+            smoothVelocity.x,
+            currentVelocity.y,
+            smoothVelocity.z
+        );
     }
 
     void JumpCheck()
