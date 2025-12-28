@@ -1,18 +1,12 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 public class CoinManager : MonoBehaviour
 {
-     public static CoinManager Instance;
+    public static CoinManager Instance;
 
     [Header("Coin Settings")]
     public int targetCoin = 10;
     public int currentCoin = 0;
-
-    [Header("Win Settings")]
-    public string winSceneName = "WinScene";
 
     void Awake()
     {
@@ -26,14 +20,10 @@ public class CoinManager : MonoBehaviour
     {
         currentCoin += amount;
         Debug.Log("Coin: " + currentCoin + " / " + targetCoin);
-
-        if (currentCoin >= targetCoin)
-            WinGame();
     }
 
-    void WinGame()
+    public bool IsAllCoinCollected()
     {
-        Debug.Log("YOU WIN!");
-        SceneManager.LoadScene(winSceneName);
+        return currentCoin >= targetCoin;
     }
 }
