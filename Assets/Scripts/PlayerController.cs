@@ -26,6 +26,9 @@ public class PlayerController : MonoBehaviour
     Rigidbody rb;
     RaycastHit groundHit;
 
+    private Animator animator;
+   // private bool isRunning;
+
     void Start()
     {
         rb = GetComponent<Rigidbody>();
@@ -33,6 +36,8 @@ public class PlayerController : MonoBehaviour
         rb.interpolation = RigidbodyInterpolation.Interpolate;
         rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
         rb.freezeRotation = true;
+
+        animator = GetComponent<Animator>();
     }
 
     void Update()
@@ -42,6 +47,8 @@ public class PlayerController : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.Space))
             jumpInput = true;
+    
+        
     }
 
     void FixedUpdate()
@@ -96,6 +103,8 @@ public class PlayerController : MonoBehaviour
             currentVelocity.y,
             smoothVelocity.z
         );
+
+        //animator.SetFloat("Speed", magnitude);
     }
 
     void JumpCheck()
