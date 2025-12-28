@@ -1,54 +1,50 @@
 using UnityEngine;
-using UnityEngine.SceneManagement;
+using UnityEngine.Playables; // Wajib ada untuk Timeline
 
-public class AltarWin : MonoBehaviour
+public class Altar : MonoBehaviour
 {
-    [Header("Win Condition")]
-    public bool requireAllCoins = true;
+    [Header("Pengaturan Misi")]
+    public int targetKunang = 6;
+    [SerializeField] private int jumlahTerkumpul = 0;
 
-    [Header("Win Behaviour")]
-    public bool useSceneTransition = true;
-    public string winSceneName = "WinScene";
+    [Header("Cutscene Settings")]
+    public PlayableDirector timelineDirector; // Masukkan GameObject CutsceneDirector disini
+    public GameObject playerObject; // Masukkan Player untuk dimatikan geraknya
+    public GameObject uiGameplay; // Masukkan UI koin/darah untuk disembunyikan (opsional)
 
-    public bool useAnimation = false;
-    public Animator altarAnimator;
-    public string winTriggerName = "Win";
-
-    private bool hasWon = false;
-
-    private void OnTriggerEnter(Collider other)
+    public void TambahKunangKunang()
     {
-        if (hasWon) return;
-
-        if (!other.CompareTag("Player")) return;
-
-        if (requireAllCoins && !CoinManager.Instance.IsAllCoinCollected())
+        jumlahTerkumpul++;
+        
+        if (jumlahTerkumpul >= targetKunang)
         {
-            Debug.Log("❌ Koin belum lengkap!");
-            return;
-        }
-
-        Win();
-    }
-
-    void Win()
-    {
-        hasWon = true;
-        Debug.Log("🏆 PLAYER MENANG!");
-
-        if (useAnimation && altarAnimator != null)
-        {
-            altarAnimator.SetTrigger(winTriggerName);
-        }
-
-        if (useSceneTransition)
-        {
-            Invoke(nameof(LoadWinScene), 1.5f);
+            MulaiEnding();
         }
     }
 
-    void LoadWinScene()
+    void MulaiEnding()
     {
-        SceneManager.LoadScene(winSceneName);
+        Debug.Log("Scene Ending Dimulai...");
+
+        // 1. Matikan kontrol pemain agar tidak bisa jalan-jalan saat cutscene
+        if (playerObject != null)
+        {
+            // Matikan script controller-nya saja, jangan objeknya (supaya masih terlihat)
+            playerObject.GetComponent<PlayerController>().enabled = false;
+            // Set animasi ke idle atau duduk jika mau
+            playerObject.GetComponent<Animator>().SetBool("isRunning", false);
+        }
+
+        // 2. Sembunyikan UI Gameplay yang mengganggu
+        if (uiGameplay != null)
+        {
+            uiGameplay.SetActive(false);
+        }
+
+        // 3. Mainkan Timeline
+        if (timelineDirector != null)
+        {
+            timelineDirector.Play();
+        }
     }
 }

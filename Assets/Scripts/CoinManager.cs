@@ -4,26 +4,32 @@ public class CoinManager : MonoBehaviour
 {
     public static CoinManager Instance;
 
-    [Header("Coin Settings")]
-    public int targetCoin = 10;
-    public int currentCoin = 0;
+    public int totalCoins = 0;
+    public int collectedCoins = 0;
 
     void Awake()
     {
-        if (Instance == null)
-            Instance = this;
-        else
-            Destroy(gameObject);
+        // Setup Singleton sederhana
+        if (Instance == null) Instance = this;
+        else Destroy(gameObject);
     }
 
-    public void AddCoin(int amount)
+    // Fungsi dipanggil oleh Item saat game mulai
+    public void RegisterCoin()
     {
-        currentCoin += amount;
-        Debug.Log("Coin: " + currentCoin + " / " + targetCoin);
+        totalCoins++;
     }
 
+    // Fungsi dipanggil saat Item berhasil di-absorb
+    public void CollectCoin()
+    {
+        collectedCoins++;
+        Debug.Log($"Coin Collected: {collectedCoins}/{totalCoins}");
+    }
+
+    // Fungsi yang dipanggil oleh AltarWin kamu
     public bool IsAllCoinCollected()
     {
-        return currentCoin >= targetCoin;
+        return collectedCoins >= totalCoins;
     }
 }

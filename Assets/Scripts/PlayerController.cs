@@ -9,12 +9,20 @@ public class PlayerController : MonoBehaviour
     public float deceleration = 16f;
     Vector2 moveInput;
     
-    // --- [BARU] Variable untuk arah hadap ---
     private bool isFacingRight = true; 
 
     [Header("Jump")]
     public float jumpForce = 7f;
     bool jumpInput;
+
+    [Header("States")]
+    bool isAbsorbing;
+    bool isSitting = false; // Default tidak duduk
+
+    [Header("Absorb Ability")]
+    public float absorbRadius = 3f;
+    public LayerMask absorbLayer;   
+    public Transform absorbPoint;   
 
     [Header("Ground Check")]
     public Transform grdChecker;
@@ -22,76 +30,91 @@ public class PlayerController : MonoBehaviour
     public float rayLength = 0.6f;
     bool grounded;
 
-    [Header("Z Limit")]
-    public float minZ = -2f;
-    public float maxZ = 2f;
-
     Rigidbody rb;
     RaycastHit groundHit;
-
     private Animator animator;
 
     void Start()
     {
         rb = GetComponent<Rigidbody>();
-
         rb.interpolation = RigidbodyInterpolation.Interpolate;
         rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
         rb.freezeRotation = true;
 
         animator = GetComponent<Animator>();
+        if (absorbPoint == null) absorbPoint = transform;
     }
 
     void Update()
     {
-        // Mengambil input (Nilai -1 s/d 1)
-        moveInput.x = Input.GetAxisRaw("Horizontal");
-        moveInput.y = Input.GetAxisRaw("Vertical");
-
-        if (Input.GetKeyDown(KeyCode.Space))
-            jumpInput = true;
-
-        // --- [BARU] Logika Animasi Lari ---
-        // Jika ada input gerakan (x atau y tidak 0), set isRunning true
-        if (moveInput.sqrMagnitude > 0.1f)
+        // --- 1. LOGIKA DUDUK (TOMBOL C) ---
+        // Tekan C untuk duduk, Tekan C lagi untuk berdiri
+        if (Input.GetKeyDown(KeyCode.C) && grounded && !isAbsorbing)
         {
-            animator.SetBool("isRunning", true);
-        }
-        else
-        {
-            animator.SetBool("isRunning", false);
+            isSitting = !isSitting; // Membalik status (True <-> False)
+            animator.SetBool("isSitting", isSitting);
         }
 
-        // --- [BARU] Logika Membalik Badan (Flip) ---
-        // Jika gerak ke kanan (x > 0) dan sedang tidak menghadap kanan -> Flip
-        if (moveInput.x > 0 && !isFacingRight)
+        // --- 2. LOGIKA ABSORB ---
+        isAbsorbing = Input.GetKey(KeyCode.E);
+        if (animator != null) animator.SetBool("isAbsorbing", isAbsorbing);
+
+        // --- KONDISI PENGUNCI GERAKAN ---
+        // Jika sedang Duduk ATAU Absorb, matikan gerakan
+        if (isSitting || isAbsorbing)
         {
-            Flip();
+            moveInput = Vector2.zero; // Paksa diam
+            if (animator != null) animator.SetBool("isRunning", false);
+
+            // Jika sedang duduk tapi pemain memaksa Absorb, batalkan duduknya (Opsional)
+            if (isAbsorbing && isSitting)
+            {
+                isSitting = false;
+                animator.SetBool("isSitting", false);
+            }
+            
+            if (isAbsorbing) HandleAbsorbAction();
         }
-        // Jika gerak ke kiri (x < 0) dan sedang menghadap kanan -> Flip
-        else if (moveInput.x < 0 && isFacingRight)
+        else 
         {
-            Flip();
+            // --- 3. LOGIKA GERAK NORMAL ---
+            moveInput.x = Input.GetAxisRaw("Horizontal");
+            moveInput.y = Input.GetAxisRaw("Vertical");
+
+            if (Input.GetKeyDown(KeyCode.Space))
+                jumpInput = true;
+
+            if (animator != null)
+                animator.SetBool("isRunning", moveInput.sqrMagnitude > 0.1f);
+
+            if (moveInput.x > 0 && !isFacingRight) Flip();
+            else if (moveInput.x < 0 && isFacingRight) Flip();
         }
     }
 
     void FixedUpdate()
     {
         GroundCheck();
-        SmoothMove();
-        JumpCheck();
-        ClampZPosition();
+        SmoothMove(); 
+        
+        // Hanya bisa lompat jika TIDAK duduk dan TIDAK absorb
+        if (!isAbsorbing && !isSitting)
+        {
+            JumpCheck();
+        }
+    }
+
+    // --- BAGIAN BAWAH SAMA SEPERTI SEBELUMNYA ---
+    void HandleAbsorbAction()
+    {
+        Collider[] items = Physics.OverlapSphere(transform.position, absorbRadius, absorbLayer);
+        foreach (Collider item in items) { /* Logic Item */ }
     }
 
     void GroundCheck()
     {
-        grounded = Physics.Raycast(
-            grdChecker.position,
-            Vector3.down,
-            out groundHit,
-            rayLength,
-            ground
-        );
+        if (grdChecker != null)
+            grounded = Physics.Raycast(grdChecker.position, Vector3.down, out groundHit, rayLength, ground);
     }
 
     void SmoothMove()
@@ -99,64 +122,42 @@ public class PlayerController : MonoBehaviour
         Vector3 inputDir = new Vector3(moveInput.x, 0f, moveInput.y).normalized;
         Vector3 targetVelocity;
 
-        if (grounded)
-        {
+        if (grounded) {
             Vector3 slopeDir = Vector3.ProjectOnPlane(inputDir, groundHit.normal);
             targetVelocity = slopeDir * moveSpeed;
-        }
-        else
-        {
+        } else {
             targetVelocity = inputDir * (moveSpeed * 0.6f);
         }
 
         Vector3 currentVelocity = rb.velocity;
         Vector3 horizontalVelocity = new Vector3(currentVelocity.x, 0f, currentVelocity.z);
 
-        float accel = inputDir.magnitude > 0 ? acceleration : deceleration;
+        // Deselerasi jika tidak ada input ATAU sedang duduk/absorb
+        float accel = (inputDir.magnitude > 0 && !isAbsorbing && !isSitting) ? acceleration : deceleration;
 
-        Vector3 smoothVelocity = Vector3.MoveTowards(
-            horizontalVelocity,
-            targetVelocity,
-            accel * Time.fixedDeltaTime
-        );
-
-        rb.velocity = new Vector3(
-            smoothVelocity.x,
-            currentVelocity.y,
-            smoothVelocity.z
-        );
+        Vector3 smoothVelocity = Vector3.MoveTowards(horizontalVelocity, targetVelocity, accel * Time.fixedDeltaTime);
+        rb.velocity = new Vector3(smoothVelocity.x, currentVelocity.y, smoothVelocity.z);
     }
 
     void JumpCheck()
     {
-        if (jumpInput && grounded)
-        {
+        if (jumpInput && grounded) {
             rb.velocity = new Vector3(rb.velocity.x, jumpForce, rb.velocity.z);
             jumpInput = false;
-            // Opsional: Tambahkan trigger animasi lompat disini jika ada
-            // animator.SetTrigger("jump"); 
         }
     }
 
-    void ClampZPosition()
-    {
-        Vector3 pos = rb.position;
-        pos.z = Mathf.Clamp(pos.z, minZ, maxZ);
-        rb.position = pos;
-    }
-
-    // --- [BARU] Fungsi Flip ---
     void Flip()
     {
-        isFacingRight = !isFacingRight; // Balik status boolean
-
-        // Ambil scale saat ini
+        isFacingRight = !isFacingRight;
         Vector3 currentScale = transform.localScale;
-        
-        // Kalikan sumbu X dengan -1 (membalik gambar)
         currentScale.x *= -1; 
-        
-        // Terapkan scale baru
         transform.localScale = currentScale;
+    }
+    
+    void OnDrawGizmosSelected()
+    {
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(transform.position, absorbRadius);
     }
 }
