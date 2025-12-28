@@ -8,6 +8,9 @@ public class PlayerController : MonoBehaviour
     public float acceleration = 12f;
     public float deceleration = 16f;
     Vector2 moveInput;
+    
+    // --- [BARU] Variable untuk arah hadap ---
+    private bool isFacingRight = true; 
 
     [Header("Jump")]
     public float jumpForce = 7f;
@@ -27,7 +30,6 @@ public class PlayerController : MonoBehaviour
     RaycastHit groundHit;
 
     private Animator animator;
-   // private bool isRunning;
 
     void Start()
     {
@@ -42,13 +44,35 @@ public class PlayerController : MonoBehaviour
 
     void Update()
     {
+        // Mengambil input (Nilai -1 s/d 1)
         moveInput.x = Input.GetAxisRaw("Horizontal");
         moveInput.y = Input.GetAxisRaw("Vertical");
 
         if (Input.GetKeyDown(KeyCode.Space))
             jumpInput = true;
-    
-        
+
+        // --- [BARU] Logika Animasi Lari ---
+        // Jika ada input gerakan (x atau y tidak 0), set isRunning true
+        if (moveInput.sqrMagnitude > 0.1f)
+        {
+            animator.SetBool("isRunning", true);
+        }
+        else
+        {
+            animator.SetBool("isRunning", false);
+        }
+
+        // --- [BARU] Logika Membalik Badan (Flip) ---
+        // Jika gerak ke kanan (x > 0) dan sedang tidak menghadap kanan -> Flip
+        if (moveInput.x > 0 && !isFacingRight)
+        {
+            Flip();
+        }
+        // Jika gerak ke kiri (x < 0) dan sedang menghadap kanan -> Flip
+        else if (moveInput.x < 0 && isFacingRight)
+        {
+            Flip();
+        }
     }
 
     void FixedUpdate()
@@ -73,7 +97,6 @@ public class PlayerController : MonoBehaviour
     void SmoothMove()
     {
         Vector3 inputDir = new Vector3(moveInput.x, 0f, moveInput.y).normalized;
-
         Vector3 targetVelocity;
 
         if (grounded)
@@ -83,7 +106,6 @@ public class PlayerController : MonoBehaviour
         }
         else
         {
-            // kontrol di udara lebih kecil
             targetVelocity = inputDir * (moveSpeed * 0.6f);
         }
 
@@ -103,8 +125,6 @@ public class PlayerController : MonoBehaviour
             currentVelocity.y,
             smoothVelocity.z
         );
-
-        //animator.SetFloat("Speed", magnitude);
     }
 
     void JumpCheck()
@@ -113,6 +133,8 @@ public class PlayerController : MonoBehaviour
         {
             rb.velocity = new Vector3(rb.velocity.x, jumpForce, rb.velocity.z);
             jumpInput = false;
+            // Opsional: Tambahkan trigger animasi lompat disini jika ada
+            // animator.SetTrigger("jump"); 
         }
     }
 
@@ -121,5 +143,20 @@ public class PlayerController : MonoBehaviour
         Vector3 pos = rb.position;
         pos.z = Mathf.Clamp(pos.z, minZ, maxZ);
         rb.position = pos;
+    }
+
+    // --- [BARU] Fungsi Flip ---
+    void Flip()
+    {
+        isFacingRight = !isFacingRight; // Balik status boolean
+
+        // Ambil scale saat ini
+        Vector3 currentScale = transform.localScale;
+        
+        // Kalikan sumbu X dengan -1 (membalik gambar)
+        currentScale.x *= -1; 
+        
+        // Terapkan scale baru
+        transform.localScale = currentScale;
     }
 }
